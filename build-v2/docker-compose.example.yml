@@ -1,0 +1,43 @@
+# MusicIP Mixer 1.96b — headless server. Pull-and-run example.
+#
+#   1. Set the two /path/to/... mounts below.
+#   2. Set PUID/PGID to whoever owns your data —  id <your_user>
+#   3. docker compose up -d      then browse http://localhost:10002
+#
+# A README.txt is written into your persist folder on first run explaining
+# every file in it. Read that before changing anything there.
+services:
+  mip:
+    image: saysaar/musicip-1.96b-wine:latest
+    container_name: mip
+    restart: unless-stopped
+
+    environment:
+      - PUID=1000            # your data's owner — run `id <user>`  (Synology e.g. 1027)
+      - PGID=1000            #                                       (Synology e.g. 65536)
+      - TZ=America/New_York
+
+    ports:
+      - "127.0.0.1:10002:10002"    # for an LMS stack, delete this and use: network_mode: host
+
+    # The root init needs exactly these to remap the account and drop privileges.
+    # It holds none of them afterwards; the server itself runs unprivileged.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+
+    volumes:
+      # PERSIST FOLDER — mount the folder, never individual files.
+      # Seeded on first run with mmm.ini, recipes.xml and README.txt, plus an
+      # empty Moods/. No cache and no registration key are shipped: MusicIP
+      # creates default.m3lib itself, and mixing works unregistered.
+      # Anything you put here is never overwritten.
+      - "/path/to/mip:/home/mip/.wine/drive_c/users/mip/AppData/Roaming/MusicIP/MusicIP Mixer"
+
+      # MUSIC, read-only. The container side MUST be /music — Wine maps it to
+      # Z:\music, and the paths stored in the cache depend on it. If you use
+      # LMS, its music path must match what you set here.
+      - "/path/to/music:/music:ro"
+
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }

@@ -1,0 +1,64 @@
+# MusicIP Mixer 1.96b — BUILD/TEST compose (Windows + Docker Desktop).
+#
+#   cd build-v2
+#   docker compose up -d --build
+#   docker logs mip            # expect: OK — API: idle
+#   # browse http://localhost:10002
+#
+# The image ships working defaults and runs with NOTHING mounted.
+services:
+  mip:
+    build:
+      context: ..                      # PROJECT ROOT — needs mip_server_install_files/
+      dockerfile: build-v2/Dockerfile
+    image: musicip-wine:2.1
+    container_name: mip
+    restart: unless-stopped
+
+    # Loopback publish keeps 10002 off the LAN.  On the Debian host use
+    # network_mode: host instead (see docker-compose.debian.yml).
+    ports:
+      - "127.0.0.1:10002:10002"
+
+    environment:
+      # Match these to whoever owns the mounted folder (run `id <user>`):
+      #   Debian default user : PUID=1000  PGID=1000
+      #   Synology (example)  : PUID=1027  PGID=65536
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+
+    # The long-running server is unprivileged.  These five are what the root
+    # init needs to remap the account and drop; it holds none of them after.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+
+    # --- The ONE persist mount.  Mount the FOLDER, never single files.
+    # Empty on first run -> mmm.ini, recipes.xml and README.txt are seeded,
+    # and an empty Moods/ is created.  No cache and no register.key are
+    # shipped: MIP makes default.m3lib itself; add a key if you have one.
+    volumes:
+      # Point this at an EMPTY folder for a genuine first-run test.  Docker
+      # Desktop creates it if missing.  If it already holds files, seeding is
+      # skipped and the run proves nothing.
+      - "D:/mip-test:/home/mip/.wine/drive_c/users/mip/AppData/Roaming/MusicIP/MusicIP Mixer"
+
+      # Music, read-only.  MUST be /music so Wine maps it to Z:\music, and it
+      # MUST be /music in your LMS container too.
+      # TEST RUN: a single local album is enough to prove MIP writes a cache.
+      # Do NOT point this at the mapped Z: drive — Docker Desktop does not get
+      # your session's drive mappings, and scanning the real library over SMB
+      # would be slow and pointless here.
+      - "D:/Documents/music:/music:ro"
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

@@ -1,0 +1,47 @@
+# MusicIP Mixer 1.96b — DEBIAN production compose (host-networked).
+#
+#   Move the image without a registry:
+#     docker save -o musicip-wine-2.1.tar musicip-wine:2.1   # on Windows
+#     scp musicip-wine-2.1.tar debian:/tmp/
+#     docker load -i /tmp/musicip-wine-2.1.tar               # tag stays musicip-wine:2.1
+#
+#   LMS does NOT need restarting after a MIP restart — confirmed repeatedly in
+#   practice (2026-08).  Older project docs claim otherwise; that was most likely
+#   a quirk of the original SugarCube build.  Cold-boot start order is untested.
+services:
+  mip:
+    image: musicip-wine:2.1
+    container_name: mip
+    network_mode: host
+    restart: unless-stopped
+
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+
+    cap_drop: [ALL]
+    cap_add:  [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]   # REQUIRED by the setpriv init
+
+    volumes:
+      # Persist folder.  Flat, one subfolder:
+      #   Moods/            <- yours; created EMPTY if absent, never populated
+      #   default.m3lib     <- your real cache; 2.1 seeds none, MIP makes it
+      #   mmm.ini  recipes.xml  README.txt
+      #   register.key      <- yours; 2.1 ships none.  Mixing works without one.
+      # An existing folder is left strictly alone: nothing here is overwritten.
+      # (powerwords.txt may still be present from 2.0.  It is no longer linked
+      #  into the install dir and the headless server never read it anyway.)
+      # Owned by PUID:PGID —  chown -R $PUID:$PGID /data/docker/mip
+      # NOT 1000:1000 unless that is what `id <your_user>` says.  This comment
+      # read 1000 until 2026-09-08; copied onto a Synology (1027:65536) it is
+      # simply wrong.  The init chowns this folder at boot anyway.
+      - "/data/docker/mip:/home/mip/.wine/drive_c/users/mip/AppData/Roaming/MusicIP/MusicIP Mixer"
+      # Music, read-only.  /music on BOTH sides — LMS must see the same path.
+      - "/data/12tb/music:/music:ro"
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

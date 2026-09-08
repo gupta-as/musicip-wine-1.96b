@@ -1,0 +1,17 @@
+# MusicIP program payload — licensed binaries, supply your own.  See PAYLOAD.md
+mip_server_install_files/
+
+# Anything that could carry binaries, keys or a library in by accident
+*.exe
+*.dll
+*.tgz
+*.tar
+*.tar.gz
+register.key
+*.m3lib
+
+# Local scratch
+*.bak
+*.log
+__pycache__/
+*.pyc
